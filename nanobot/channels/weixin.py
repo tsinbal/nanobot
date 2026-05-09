@@ -944,6 +944,13 @@ class WeixinChannel(BaseChannel):
             raise RuntimeError("WeChat client not initialized or not authenticated")
         self._assert_session_active()
 
+        self.logger.info(
+            "WeChat sending message: chat_id={} content={!r} media_count={}",
+            msg.chat_id,
+            msg.content[:200] if msg.content else "",
+            len(msg.media) if msg.media else 0,
+        )
+
         is_progress = bool((msg.metadata or {}).get("_progress", False))
         if not is_progress:
             await self._stop_typing(msg.chat_id, clear_remote=True)
@@ -1025,7 +1032,11 @@ class WeixinChannel(BaseChannel):
             for chunk in chunks:
                 await self._send_text(msg.chat_id, chunk, ctx_token)
         except Exception:
-            self.logger.exception("Error sending message")
+            self.logger.exception(
+                "Error sending message: chat_id={} content={!r}",
+                msg.chat_id,
+                msg.content[:200] if msg.content else "",
+            )
             raise
         finally:
             if typing_keepalive_task:
