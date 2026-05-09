@@ -135,6 +135,8 @@ class MessageTool(Tool):
     ) -> str:
         from nanobot.utils.helpers import strip_think
         content = strip_think(content)
+        if not content.strip():
+            return "Error: content must not be empty — provide the message text to send"
 
         if buttons is not None:
             if not isinstance(buttons, list) or any(

@@ -728,10 +728,9 @@ def _run_gateway(
         from nanobot.utils.evaluator import evaluate_response
 
         reminder_note = (
-            "The scheduled time has arrived. Deliver this reminder to the user now, "
-            "as a brief and natural message in their language. Speak directly to them — "
-            "do not narrate progress, summarize, include user IDs, or add status reports "
-            "like 'Done' or 'Reminded'.\n\n"
+            "A scheduled reminder is due now. Use the message() tool to send it. "
+            "Pass the reminder text below as the 'content' parameter verbatim — "
+            "do not paraphrase, summarize, or add commentary.\n\n"
             f"Reminder: {job.payload.message}"
         )
 
@@ -762,6 +761,10 @@ def _run_gateway(
                 message_tool.reset_record_channel_delivery(message_record_token)
 
         response = resp.content if resp else ""
+        logger.info(
+            "Cron job '{}' ({}): agent response (len={}): {}",
+            job.name, job.id, len(response), response[:200],
+        )
 
         if job.payload.deliver and isinstance(message_tool, MessageTool) and message_tool._sent_in_turn:
             return response
