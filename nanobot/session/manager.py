@@ -14,6 +14,7 @@ from loguru import logger
 
 from nanobot.config.paths import get_legacy_sessions_dir
 from nanobot.utils.helpers import (
+    atomic_replace,
     ensure_dir,
     estimate_message_tokens,
     find_legal_message_start,
@@ -449,7 +450,7 @@ class SessionManager:
                     f.flush()
                     os.fsync(f.fileno())
 
-            os.replace(tmp_path, path)
+            atomic_replace(tmp_path, path)
 
             if fsync:
                 # fsync the directory so the rename is durable.

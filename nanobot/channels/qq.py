@@ -39,6 +39,7 @@ from nanobot.bus.queue import MessageBus
 from nanobot.channels.base import BaseChannel
 from nanobot.config.schema import Base
 from nanobot.security.network import validate_url_target
+from nanobot.utils.helpers import atomic_replace
 from nanobot.utils.logging_bridge import redirect_lib_logging
 
 try:
@@ -674,8 +675,8 @@ class QQChannel(BaseChannel):
                 finally:
                     await asyncio.to_thread(f.close)
 
-                # Atomic rename
-                await asyncio.to_thread(os.replace, tmp_path, target)
+                # Atomic rename (with SMB fallback)
+                await asyncio.to_thread(atomic_replace, tmp_path, target)
                 tmp_path = None  # mark as moved
                 self.logger.info("file saved: {}", str(target))
                 return str(target)

@@ -20,6 +20,7 @@ from nanobot.agent.tools.registry import ToolRegistry
 from nanobot.session.manager import Session
 from nanobot.utils.gitstore import GitStore
 from nanobot.utils.helpers import (
+    atomic_replace,
     ensure_dir,
     estimate_message_tokens,
     estimate_prompt_tokens_chain,
@@ -373,7 +374,7 @@ class MemoryStore:
                     f.write(json.dumps(entry, ensure_ascii=False) + "\n")
                 f.flush()
                 os.fsync(f.fileno())
-            os.replace(tmp_path, self.history_file)
+            atomic_replace(tmp_path, self.history_file)
 
             # fsync the directory so the rename is durable.
             # On Windows, opening a directory with O_RDONLY raises

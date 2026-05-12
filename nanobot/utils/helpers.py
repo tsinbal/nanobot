@@ -2,6 +2,7 @@
 
 import base64
 import json
+import os
 import re
 import shutil
 import time
@@ -543,3 +544,17 @@ def sync_workspace_templates(workspace: Path, silent: bool = False) -> list[str]
         logger.exception("Failed to initialize git store for {}", workspace)
 
     return added
+
+
+def atomic_replace(src: Path, dst: Path) -> None:
+    """Atomically replace *dst* with *src* (same filesystem).
+
+    Falls back to a non-atomic copy+unlink on filesystems that don't
+    support ``os.replace`` (e.g. some SMB / CIFS mounts).
+    """
+    try:
+        os.replace(src, dst)
+    except PermissionError:
+        logger.debug("os.replace failed for {}, falling back to copy+unlink", dst)
+        shutil.copyfile(src, dst)
+        src.unlink(missing_ok=True)
