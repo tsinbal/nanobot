@@ -1031,6 +1031,10 @@ class WeixinChannel(BaseChannel):
             chunks = split_message(content, WEIXIN_MAX_MESSAGE_LEN)
             for chunk in chunks:
                 await self._send_text(msg.chat_id, chunk, ctx_token)
+            self.logger.info(
+                "WeChat send completed OK: chat_id=%s chunks=%d",
+                msg.chat_id, len(chunks),
+            )
         except Exception:
             self.logger.exception(
                 "Error sending message: chat_id={} content={!r}",
@@ -1134,9 +1138,17 @@ class WeixinChannel(BaseChannel):
         data = await self._api_post("ilink/bot/sendmessage", body)
         errcode = data.get("errcode", 0)
         if errcode and errcode != 0:
+            self.logger.info(
+                "WeChat sendmessage error: ret=%s errcode=%s errmsg=%r",
+                data.get("ret"), errcode, data.get("errmsg", ""),
+            )
             raise RuntimeError(
                 f"WeChat send text error (code {errcode}): {data.get('errmsg', '')}"
             )
+        self.logger.info(
+            "WeChat sendmessage OK: to=%s len=%d ret=%s errcode=%s",
+            to_user_id, len(text), data.get("ret"), errcode,
+        )
 
     async def _send_media_file(
         self,
@@ -1284,9 +1296,17 @@ class WeixinChannel(BaseChannel):
         data = await self._api_post("ilink/bot/sendmessage", body)
         errcode = data.get("errcode", 0)
         if errcode and errcode != 0:
+            self.logger.info(
+                "WeChat sendmessage (media) error: ret=%s errcode=%s errmsg=%r",
+                data.get("ret"), errcode, data.get("errmsg", ""),
+            )
             raise RuntimeError(
                 f"WeChat send media error (code {errcode}): {data.get('errmsg', '')}"
             )
+        self.logger.info(
+            "WeChat sendmessage (media) OK: to=%s file=%s ret=%s errcode=%s",
+            to_user_id, p.name, data.get("ret"), errcode,
+        )
 
 
 # ---------------------------------------------------------------------------
