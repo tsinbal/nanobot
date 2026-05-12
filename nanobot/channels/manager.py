@@ -323,6 +323,13 @@ class ChannelManager:
     async def _send_once(channel: BaseChannel, msg: OutboundMessage) -> None:
         """Send one outbound message without retry policy."""
         if msg.metadata.get("_stream_delta") or msg.metadata.get("_stream_end"):
+            if msg.channel == "weixin":
+                logger.info(
+                    "WeChat dispatch: send_delta chat_id={} content_len={} meta={}",
+                    msg.chat_id,
+                    len(msg.content or ""),
+                    [k for k in (msg.metadata or {}) if k.startswith("_")],
+                )
             await channel.send_delta(msg.chat_id, msg.content, msg.metadata)
         elif not msg.metadata.get("_streamed"):
             await channel.send(msg)

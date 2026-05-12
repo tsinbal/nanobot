@@ -944,11 +944,13 @@ class WeixinChannel(BaseChannel):
             raise RuntimeError("WeChat client not initialized or not authenticated")
         self._assert_session_active()
 
+        meta_keys = [k for k in (msg.metadata or {}) if k.startswith("_")]
         self.logger.info(
-            "WeChat sending message: chat_id={} content={!r} media_count={}",
+            "WeChat sending message: chat_id={} content={!r} media_count={} meta={}",
             msg.chat_id,
             msg.content[:200] if msg.content else "",
             len(msg.media) if msg.media else 0,
+            meta_keys,
         )
 
         is_progress = bool((msg.metadata or {}).get("_progress", False))
@@ -1032,7 +1034,7 @@ class WeixinChannel(BaseChannel):
             for chunk in chunks:
                 await self._send_text(msg.chat_id, chunk, ctx_token)
             self.logger.info(
-                "WeChat send completed OK: chat_id=%s chunks=%d",
+                "WeChat send completed OK: chat_id={} chunks={}",
                 msg.chat_id, len(chunks),
             )
         except Exception:
@@ -1139,14 +1141,14 @@ class WeixinChannel(BaseChannel):
         errcode = data.get("errcode", 0)
         if errcode and errcode != 0:
             self.logger.info(
-                "WeChat sendmessage error: ret=%s errcode=%s errmsg=%r",
+                "WeChat sendmessage error: ret={} errcode={} errmsg={!r}",
                 data.get("ret"), errcode, data.get("errmsg", ""),
             )
             raise RuntimeError(
                 f"WeChat send text error (code {errcode}): {data.get('errmsg', '')}"
             )
         self.logger.info(
-            "WeChat sendmessage OK: to=%s len=%d ret=%s errcode=%s",
+            "WeChat sendmessage OK: to={} len={} ret={} errcode={}",
             to_user_id, len(text), data.get("ret"), errcode,
         )
 
@@ -1297,14 +1299,14 @@ class WeixinChannel(BaseChannel):
         errcode = data.get("errcode", 0)
         if errcode and errcode != 0:
             self.logger.info(
-                "WeChat sendmessage (media) error: ret=%s errcode=%s errmsg=%r",
+                "WeChat sendmessage (media) error: ret={} errcode={} errmsg={!r}",
                 data.get("ret"), errcode, data.get("errmsg", ""),
             )
             raise RuntimeError(
                 f"WeChat send media error (code {errcode}): {data.get('errmsg', '')}"
             )
         self.logger.info(
-            "WeChat sendmessage (media) OK: to=%s file=%s ret=%s errcode=%s",
+            "WeChat sendmessage (media) OK: to={} file={} ret={} errcode={}",
             to_user_id, p.name, data.get("ret"), errcode,
         )
 
