@@ -549,23 +549,22 @@ def sync_workspace_templates(workspace: Path, silent: bool = False) -> list[str]
 def atomic_replace(src: Path, dst: Path) -> None:
     """Atomically replace *dst* with *src* (same filesystem).
 
-    Falls back to a non-atomic write on filesystems that don't support
-    ``os.replace`` (e.g. some SMB / CIFS mounts).
+    Falls back on filesystems that don't support ``os.replace``
+    (e.g. some SMB / CIFS mounts refuse to overwrite an existing file).
     """
     try:
         os.replace(src, dst)
     except PermissionError:
-        # SMB / CIFS often rejects os.replace (EPERM / EACCES).
-        # Some servers also delete the destination *before* failing the
-        # rename, so we cannot assume dst still exists.
-        logger.info("os.replace failed (SMB?), using non-atomic fallback for {}", dst)
+        # SMB / CIFS often rejects os.replace because it cannot atomically
+        # overwrite a file that already exists.  Deleting the destination
+        # first and then renaming avoids the replace-overwrite semantic
+        # that the SMB server denies.
+        logger.info("os.replace failed (SMB?), using unlink+rename fallback for {}", dst)
+        dst.unlink(missing_ok=True)
         try:
+            os.rename(src, dst)
+        except OSError:
+            # rename across mount points (or SMB being difficult again) —
+            # fall all the way back to copy + unlink.
             shutil.copyfile(src, dst)
-        except (OSError, PermissionError, FileNotFoundError):
-            # Last resort: read into memory and write directly.
-            # This handles cases where the SMB mount is in an inconsistent
-            # state after a partially-executed os.replace.
-            logger.warning("copyfile fallback also failed for {}, using direct write", dst)
-            data = src.read_bytes()
-            dst.write_bytes(data)
-        src.unlink(missing_ok=True)
+            src.unlink(missing_ok=True)
