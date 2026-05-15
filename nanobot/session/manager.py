@@ -305,6 +305,7 @@ class SessionManager:
     def _load(self, key: str) -> Session | None:
         """Load a session from disk."""
         path = self._get_session_path(key)
+        recovery = path.with_suffix(".jsonl.recovery")
         if not path.exists():
             legacy_path = self._get_legacy_session_path(key)
             if legacy_path.exists():
@@ -313,6 +314,18 @@ class SessionManager:
                     logger.info("Migrated session {} from legacy path", key)
                 except Exception:
                     logger.exception("Failed to migrate session {}", key)
+
+        if not path.exists() and recovery.exists():
+            # Recover from a previous save that couldn't write to the
+            # canonical path (e.g. CIFS dentry cache corruption).
+            # Try to restore the canonical name, but if that also fails
+            # (dentry still stuck), load directly from the recovery file.
+            logger.info("Recovering session {} from {}", key, recovery)
+            try:
+                recovery.rename(path)
+            except OSError:
+                logger.warning("rename failed, loading directly from recovery file")
+                path = recovery
 
         if not path.exists():
             return None
@@ -450,7 +463,37 @@ class SessionManager:
                     f.flush()
                     os.fsync(f.fileno())
 
-            atomic_replace(tmp_path, path)
+            try:
+                atomic_replace(tmp_path, path)
+            except (PermissionError, OSError):
+                # SMB / CIFS may reject rename+replace, and the kernel
+                # dentry cache can be corrupted (st_nlink == 0) after
+                # a previous failed os.replace.  Try direct write; if
+                # that also fails, persist via a recovery file that
+                # _load knows how to find.
+                self.logger.warning(
+                    "atomic_replace failed for {}, trying direct write", path,
+                )
+                try:
+                    data = tmp_path.read_text(encoding="utf-8")
+                    with open(path, "w", encoding="utf-8") as f_direct:
+                        f_direct.write(data)
+                        if fsync:
+                            f_direct.flush()
+                            os.fsync(f_direct.fileno())
+                except OSError:
+                    # Even direct write failed — CIFS dentry is stuck.
+                    # Keep the .tmp file as a recovery copy; _load will
+                    # pick it up on the next read.
+                    recovery = path.with_suffix(".jsonl.recovery")
+                    self.logger.warning(
+                        "direct write also failed for {}, saving to recovery {}",
+                        path, recovery,
+                    )
+                    recovery.unlink(missing_ok=True)
+                    tmp_path.rename(recovery)
+                else:
+                    tmp_path.unlink(missing_ok=True)
 
             if fsync:
                 # fsync the directory so the rename is durable.
